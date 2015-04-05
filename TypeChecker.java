@@ -380,14 +380,16 @@ public class TypeChecker {
           if(b){
         	  Boolean t=checkConstant(p.expr_);
         	  
-        	  if(t && s.o==null)
+        	  if(t)
+        		  if(s.o==null)
                     throw new TypeException("infinite loop in"+PrettyPrinter.print(p));
-        		 
-        	  else if(!t)
+        		  else
+        			return new AnnoStmt(s.o,new While(e.expr_,s.s));
+        	  else
         		  return new AnnoStmt(null,new While(e.expr_,s.s));
           }
          
-          return new AnnoStmt(s.o,new While(e.expr_,s.s));
+          return new AnnoStmt(null,new While(e.expr_,s.s));
      }
      public AnnoStmt visit(Javalette.Absyn.SExp p,Env environment)
      {
@@ -518,7 +520,7 @@ public class TypeChecker {
 		   if(e1.typecode_==TypeCode.CInt&&e2.typecode_==TypeCode.CInt){
            	     return new AnnoExpr(TypeCode.CInt,new AnnoType(transferTypeCode(TypeCode.CInt),new EMul(e1.expr_,p.mulop_,e2.expr_)));
            	}
-           else if(e1.typecode_==TypeCode.CDouble&&e2.typecode_==TypeCode.CDouble){
+           else if((!(p.mulop_ instanceof Mod))&& e1.typecode_==TypeCode.CDouble&&e2.typecode_==TypeCode.CDouble){
            	
            	  return new AnnoExpr(TypeCode.CDouble,new AnnoType(transferTypeCode(TypeCode.CDouble),new EMul(e1.expr_,p.mulop_,e2.expr_)));
  
