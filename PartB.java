@@ -22,9 +22,7 @@ public class PartB {
 		    
 			new TypeChecker().typecheck(parse_tree);
 			new LLVM().compile(parse_tree,destination);
-			Runtime r = Runtime.getRuntime();
-			r.exec("llvm-as "+args[0]+".ll");
-			r.exec("llvm-link "+args[0]+".bc"+" ../lib/runtime.bc -o ../"+args[0]);
+			
 			System.err.println("OK");
 		} catch (TypeException e) {
 			System.err.println("ERROR");

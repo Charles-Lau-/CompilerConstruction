@@ -9,7 +9,7 @@ import java.util.LinkedList;
 import Javalette.Absyn.*;
  
 public class LLVM {
-	//generate file
+	//generate .ll file
 	public String fileName="";
 	public FileWriter fileWriter;
 	
@@ -46,6 +46,7 @@ public class LLVM {
                          return Label.FALSE.toString()+(++false_counter);
 } 
 }
+      //function type class
       public static class FunType {
           public LinkedList<Type> args ;
           public Type val ;
@@ -62,12 +63,19 @@ public class LLVM {
          	 this.val=val;
           }
           }
+      
+      //environment 
       private  class Env { 
-    	    //first element of Arraylist is llvm name,second is type
+    	    /*first element of Arraylist is llvm name,second is type,HashMap record
+    	     *mapping between variable and llvm representation.
+    	     */
     	  	private LinkedList<HashMap<String,ArrayList<String>>> scopes;
     	    private HashMap<String,FunType> signature;
+    	    //for every function , a NewLabel class track labels used in this function
     	    private LinkedList<NewLabel> Labels;
-    	    //maxvar is for %1 %2,string_couter is for @str0,@str1,variable_counter is for @i1 @i2,
+    	    /*maxvar is for register names like %1 %2 ,string_couter is for @str0,@str1,
+    	     *variable_counter is for names like @i1 @i2,
+    	     */
     	    private Integer maxvar;
     	    private Integer string_counter;
     	    private Integer variable_counter;
@@ -99,6 +107,9 @@ public class LLVM {
     	    	     throw new TypeException("Unknown function  "+fun);
     	    	 } 
               
+    	      /* for given variable x with type t, generate corresponding llvm representation
+    	       * and store  <x,<llvm-representation>> pairs
+    	       */
     		  public void addVar(String x,Type t) {
     		    if (scopes.getFirst().containsKey(x))
     			      throw new TypeException("Variable " + x 
@@ -114,6 +125,7 @@ public class LLVM {
     		  
     		    }
     		    }
+    		  
     		  public void addFun(String x,FunType ft){
     		  	
     		  	if(signature.get(x)!=null)
@@ -122,6 +134,8 @@ public class LLVM {
     		  	  signature.put(x,ft);  
     		  	
     		  	}
+    		  
+    		  //update the llvm type of variable x to be pointer type
     		  public void updateVar(String x,String llvm_type){
     			  for (HashMap<String,ArrayList<String>> scope : scopes) {
    			         ArrayList<String> t = scope.get(x);
@@ -132,27 +146,34 @@ public class LLVM {
    			                
    		      }
     		  }
+    		  
+    		   //when do string declaration, a string name is desired
     		   public String getStringName(){
     			     String name="@str"+this.string_counter;
     			     this.string_counter++;
     			     return name;
     		   }
+    		   
+    		   //get name for register like %1 , %2.
                public String getRegister(){
             	   String s="%"+this.maxvar;
             	   maxvar++;
             	   return s;
                }
+               
     		   public void enterScope() {
     		     scopes.addFirst(new HashMap<String,ArrayList<String>>());
     	    	 }
 
-    		    public void leaveScope() {
+    		   public void leaveScope() {
     		    scopes.removeFirst();
     		  }
+    		   
     		    public void enterFunction(){
     	 
     	    		Labels.addFirst(new NewLabel());
     	    	}
+    		    
     		    //different function could have the same variable name and register name
     	    	public void leaveFunction(){
     	    		this.maxvar=0;
@@ -160,9 +181,13 @@ public class LLVM {
     	    		Labels.removeFirst();
     	    	}
     	    }
+      
+      //emit code for normal instruction
       private void emit(String code){
     	   instruction.add(code+"\r\n");
       }
+      
+      //emit code for function and global string declaration
       private void emit(String global_declaration,String mode){
     	    if(mode.equals("string")){
     	    	//avoid multiple declaration
@@ -181,6 +206,7 @@ public class LLVM {
       }
      
 
+    //entrance of this class
 	public void compile(Program p,String fn) throws IOException{
 		  //create target file
 		  this.fileName=fn;
@@ -210,8 +236,9 @@ public class LLVM {
 			     environment.leaveScope();
 			   
 		  	}
-		   try{
-			//write llvm instruction from memory into file   
+		  
+		   //write llvm instruction from memory into file
+		   try{   
 		   for(String s:string_declaration)
 			     fileWriter.write(s);
 		   for(String f:function_declaration)
@@ -297,6 +324,8 @@ public class LLVM {
              else{
             	 for (int i=0;i<p.liststmt_.size();i++) {
                    response=compileStmt(p.liststmt_.get(i),obj);
+                   if(response=="unreachable")
+                	   break;
  		     }
           }
            environment.leaveScope();
@@ -326,9 +355,19 @@ public class LLVM {
           		   environment.addVar(nx.ident_,p.type_);
           		   ArrayList<String> l=environment.lookupVar(nx.ident_);
           		   emit(l.get(0)+"=alloca "+l.get(1));
-          		   
+          		   //if no initilization , then set default value
+          		   String t = compileType(p.type_,null);
+          		   String value="";
+          		   if(t=="i1")
+          			   value="i1 0";
+          		   else if(t=="i32")
+          			   value="i32 0";
+          		   else if(t=="double")
+          			   value="double 0.0";
           		   //update the type to pointer
           		   environment.updateVar(nx.ident_, l.get(1)+"*");
+
+          		   emit("store "+value+","+l.get(1)+" "+l.get(0));
         		   
           	 }else{ 
           		 Init ix=(Init)x;
@@ -429,9 +468,8 @@ public class LLVM {
         {
   		    String value=compileExpr(p.expr_,null);
   		    NewLabel l=environment.getNewLabel();
-  		    String   t_label=l.getLabel("TRUE");
-  		    String   then_label=l.getLabel("Then");
-  		    
+		    String   t_label=l.getLabel("TRUE");
+		    String   then_label=l.getLabel("Then");
   		    emit("br "+value+",label %"+t_label+",label %"+then_label);
   		    
   		    emit(t_label+":");
@@ -494,16 +532,18 @@ public class LLVM {
   		    public String visit(Javalette.Absyn.While p,Object obj)
         {
          
+
+  	  		   
+  	  		    
   		    	NewLabel l=environment.getNewLabel();
   	  		    String  w_label=l.getLabel("While");
   	  		    String   t_label=l.getLabel("TRUE");
   	  		    String   f_label=l.getLabel("False");
   	  		    
   	  		    emit("br label %"+w_label);
-  	  	     	
+  	  		    
   	  		    emit(w_label+":");
   	  		    String value=compileExpr(p.expr_,null);
-	  		    
   	  		    emit("br "+value+",label %"+t_label+",label %"+f_label);
   	  		   
   	  		    emit(t_label+":");
@@ -513,10 +553,10 @@ public class LLVM {
   	  		    	emit("br label %"+w_label);
   	  		    
   	  		    emit(f_label+":");
-  	  		    if(response.equals("return"))
+  	  		    if(response.equals("return")&&value.equals("i1 1"))
   	  		    	{
   	  		    	emit("unreachable");
-  	  		    	return "return";
+  	  		    	return "unreachable";
   	  		    	}
   	  		    else
   	  		    	return "";
@@ -580,8 +620,8 @@ public class LLVM {
      public String visit(Javalette.Absyn.EString p,String t)
      { 
     	String str_name=environment.getStringName();
-    	int length=p.string_.length()+2;
-     	emit(str_name+"=internal constant "+"["+length+" x i8"+"] c\""+p.string_+"\\"+"0A"+"\\"+"00\"","string");
+    	int length=p.string_.length()+1;
+     	emit(str_name+"=internal constant "+"["+length+" x i8"+"] c\""+p.string_+"\\"+"00\"","string");
      	String register=environment.getRegister();
      	
         emit(register+"=bitcast ["+length+" x i8]* "+str_name+" to i8*");
@@ -683,13 +723,15 @@ public class LLVM {
      public String visit(Javalette.Absyn.EAdd p, String t)
      {
     	 String value1=compileExpr(p.expr_1,null);
-         String value2=compileExpr(p.expr_2,null);
-        
-         AnnoType a_p=(AnnoType)p.expr_1;
+  		 String value2=compileExpr(p.expr_2,null);
+  		 
+  		 AnnoType a_p=(AnnoType)p.expr_1;
          String oper=compileAddop(p.addop_,compileType(a_p.type_,null));
-         
          String register=environment.getRegister();
          emit(register+"="+oper+" "+value1+","+value2.split(" ")[1]); 
+        
+         
+        
          
 		 return t+" "+register;
    }
@@ -720,42 +762,61 @@ public class LLVM {
      public String visit(Javalette.Absyn.EAnd p,String t)
      {
  	   String value1=compileExpr(p.expr_1,null);
+ 	    
+ 	   NewLabel l=environment.getNewLabel();
+	   String   t1_label=l.getLabel("TRUE");
+	   String   f1_label=l.getLabel("False");
+	   String  then_label = l.getLabel("Then");
+	   String  var=environment.getRegister();
+	   emit(var+"=alloca i1");
+	   
+ 	   emit("br "+value1+",label %"+t1_label+",label %"+f1_label);
+	   //true then just evaluate next expression
+ 	   emit(t1_label+":");
  	   String value2=compileExpr(p.expr_2,null);
- 	   
- 	   if(value1.equals("i1 1"))
-     	 if(value2.equals("i1 1"))
-     		 return "i1 1";
-     	 else if(value2.equals("i1 0"))
-     		 return "i1 0";
-      else if(value1.equals("i1 0"))
-    	  if(value2.equals("i1 1"))
-      		 return "i1 0";
-      	 else if(value2.equals("i1 0"))
-      		 return "i1 0";
-      
- 	   String register=environment.getRegister();  
- 	   emit(register+"=and "+value1+","+value2.split(" ")[1]);
+ 	   String reg = environment.getRegister(); 
+ 	   emit(reg+"=and "+value1+","+value2.split(" ")[1]);
+ 	   emit("store i1 "+reg+",i1* "+var);
+ 	   emit("br label %"+then_label);
+ 	   //false then just branch to then label
+ 	   emit(f1_label+":");
+ 	   emit("store "+value1+",i1* "+var);
+ 	   emit("br label %"+then_label);
+ 	   emit(then_label+":");
+ 	   //both in true branch and false branch, value is stored
+ 	   //in variable var, then in then branch, we just load it
+ 	   String register = environment.getRegister();
+ 	   emit(register+"= load i1* "+var);
  	   return "i1 "+register;
      }
      public String visit(Javalette.Absyn.EOr p,String t)
      {
     	  String value1=compileExpr(p.expr_1,null);
-    	  String value2=compileExpr(p.expr_2,null);
-    	   if(value1.equals("i1 1"))
-          	 if(value2.equals("i1 1"))
-          		 return "i1 1";
-          	 else if(value2.equals("i1 0"))
-          		 return "i1 1";
-           else if(value1.equals("i1 0"))
-        	   if(value2.equals("i1 1"))
-            		 return "i1 1";
-            	 else if(value2.equals("i1 0"))
-            		 return "i1 0";
-
-           
-    	  String register=environment.getRegister();  
-    	  emit(register+"=or "+value1+","+value2.split(" ")[1]);
-    	  return "i1 "+register;
+    	  NewLabel l=environment.getNewLabel();
+   	      String   t1_label=l.getLabel("TRUE");
+   	      String   f1_label=l.getLabel("False");
+   	      String  then_label = l.getLabel("Then");
+   	      String  var=environment.getRegister();
+   	      emit(var+"=alloca i1");
+   	 
+   	      emit("br "+value1+",label %"+t1_label+",label %"+f1_label);
+	      //false then just evaluate next expression
+ 	      emit(f1_label+":");
+ 	      String value2=compileExpr(p.expr_2,null);
+ 	      String reg = environment.getRegister(); 
+ 	      emit(reg+"=or "+value1+","+value2.split(" ")[1]);
+ 	      emit("store i1 "+reg+",i1* "+var);
+ 	      emit("br label %"+then_label);
+ 	      //true then just branch to then label
+ 	      emit(t1_label+":");
+ 	      emit("store "+value1+",i1* "+var);
+ 	      emit("br label %"+then_label);
+ 	      emit(then_label+":");
+ 	      //both in true branch and false branch, value is stored
+ 	      //in variable var, then in then branch, we just load it
+ 	      String register = environment.getRegister();
+ 	      emit(register+"= load i1* "+var);
+ 	      return "i1 "+register;
  	}
      }
      private String compileMulop(MulOp m,String t){
