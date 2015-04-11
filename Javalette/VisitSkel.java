@@ -100,6 +100,16 @@ public class VisitSkel
 
       return null;
     }
+    public R visit(Javalette.Absyn.Ass2 p, A arg)
+    {
+      /* Code For Ass2 Goes Here */
+
+      //p.ident_;
+      p.expr_1.accept(new ExprVisitor<R,A>(), arg);
+      p.expr_2.accept(new ExprVisitor<R,A>(), arg);
+
+      return null;
+    }
     public R visit(Javalette.Absyn.Incr p, A arg)
     {
       /* Code For Incr Goes Here */
@@ -167,6 +177,17 @@ public class VisitSkel
 
       return null;
     }
+    public R visit(Javalette.Absyn.ForLoop p, A arg)
+    {
+      /* Code For ForLoop Goes Here */
+
+      p.type_.accept(new TypeVisitor<R,A>(), arg);
+      //p.ident_1;
+      //p.ident_2;
+      p.stmt_.accept(new StmtVisitor<R,A>(), arg);
+
+      return null;
+    }
 
   }
   public class ItemVisitor<R,A> implements Item.Visitor<R,A>
@@ -217,6 +238,14 @@ public class VisitSkel
     {
       /* Code For Void Goes Here */
 
+
+      return null;
+    }
+    public R visit(Javalette.Absyn.Array p, A arg)
+    {
+      /* Code For Array Goes Here */
+
+      p.type_.accept(new TypeVisitor<R,A>(), arg);
 
       return null;
     }
@@ -292,6 +321,32 @@ public class VisitSkel
     {
       /* Code For Not Goes Here */
 
+      p.expr_.accept(new ExprVisitor<R,A>(), arg);
+
+      return null;
+    }
+    public R visit(Javalette.Absyn.NewArray p, A arg)
+    {
+      /* Code For NewArray Goes Here */
+
+      p.type_.accept(new TypeVisitor<R,A>(), arg);
+      p.expr_.accept(new ExprVisitor<R,A>(), arg);
+
+      return null;
+    }
+    public R visit(Javalette.Absyn.ArrayLen p, A arg)
+    {
+      /* Code For ArrayLen Goes Here */
+
+      //p.ident_;
+
+      return null;
+    }
+    public R visit(Javalette.Absyn.ArrayEle p, A arg)
+    {
+      /* Code For ArrayEle Goes Here */
+
+      //p.ident_;
       p.expr_.accept(new ExprVisitor<R,A>(), arg);
 
       return null;

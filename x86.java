@@ -8,7 +8,7 @@ import java.util.LinkedList;
  
 import Javalette.Absyn.*;
  
-public class LLVM {
+public class x86 {
 	//generate .ll file
 	public String fileName="";
 	public FileWriter fileWriter;
@@ -568,16 +568,6 @@ public class LLVM {
   	       return "";
     
        }
-	@Override
-	public String visit(Ass2 p, Object arg) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-	@Override
-	public String visit(ForLoop p, Object arg) {
-		// TODO Auto-generated method stub
-		return null;
-	}
        
   		 
   	 }
@@ -828,21 +818,6 @@ public class LLVM {
  	      emit(register+"= load i1* "+var);
  	      return "i1 "+register;
  	}
-	@Override
-	public String visit(NewArray p, String arg) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-	@Override
-	public String visit(ArrayLen p, String arg) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-	@Override
-	public String visit(ArrayEle p, String arg) {
-		// TODO Auto-generated method stub
-		return null;
-	}
      }
      private String compileMulop(MulOp m,String t){
     	      return m.accept(new mulopCompiler(), t);
@@ -967,11 +942,6 @@ public class LLVM {
       {
              return "void";
       }
-	@Override
-	public String visit(Array p, Object arg) {
-		// TODO Auto-generated method stub
-		return null;
-	}
   	
   		
      }

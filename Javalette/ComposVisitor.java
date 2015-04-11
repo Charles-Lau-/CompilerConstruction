@@ -90,6 +90,14 @@ public class ComposVisitor<A> implements
 
       return new Javalette.Absyn.Ass(ident_, expr_);
     }
+    public Stmt visit(Javalette.Absyn.Ass2 p, A arg)
+    {
+      String ident_ = p.ident_;
+      Expr expr_1 = p.expr_1.accept(this, arg);
+      Expr expr_2 = p.expr_2.accept(this, arg);
+
+      return new Javalette.Absyn.Ass2(ident_, expr_1, expr_2);
+    }
     public Stmt visit(Javalette.Absyn.Incr p, A arg)
     {
       String ident_ = p.ident_;
@@ -141,6 +149,15 @@ public class ComposVisitor<A> implements
 
       return new Javalette.Absyn.SExp(expr_);
     }
+    public Stmt visit(Javalette.Absyn.ForLoop p, A arg)
+    {
+      Type type_ = p.type_.accept(this, arg);
+      String ident_1 = p.ident_1;
+      String ident_2 = p.ident_2;
+      Stmt stmt_ = p.stmt_.accept(this, arg);
+
+      return new Javalette.Absyn.ForLoop(type_, ident_1, ident_2, stmt_);
+    }
 
 /* Item */
     public Item visit(Javalette.Absyn.NoInit p, A arg)
@@ -177,6 +194,12 @@ public class ComposVisitor<A> implements
     {
 
       return new Javalette.Absyn.Void();
+    }
+    public Type visit(Javalette.Absyn.Array p, A arg)
+    {
+      Type type_ = p.type_.accept(this, arg);
+
+      return new Javalette.Absyn.Array(type_);
     }
 
 /* Expr */
@@ -235,6 +258,26 @@ public class ComposVisitor<A> implements
       Expr expr_ = p.expr_.accept(this, arg);
 
       return new Javalette.Absyn.Not(expr_);
+    }
+    public Expr visit(Javalette.Absyn.NewArray p, A arg)
+    {
+      Type type_ = p.type_.accept(this, arg);
+      Expr expr_ = p.expr_.accept(this, arg);
+
+      return new Javalette.Absyn.NewArray(type_, expr_);
+    }
+    public Expr visit(Javalette.Absyn.ArrayLen p, A arg)
+    {
+      String ident_ = p.ident_;
+
+      return new Javalette.Absyn.ArrayLen(ident_);
+    }
+    public Expr visit(Javalette.Absyn.ArrayEle p, A arg)
+    {
+      String ident_ = p.ident_;
+      Expr expr_ = p.expr_.accept(this, arg);
+
+      return new Javalette.Absyn.ArrayEle(ident_, expr_);
     }
     public Expr visit(Javalette.Absyn.EMul p, A arg)
     {

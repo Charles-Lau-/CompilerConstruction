@@ -443,6 +443,19 @@ public class PrettyPrinter
        render(";");
        if (_i_ > 0) render(_R_PAREN);
     }
+    else     if (foo instanceof Javalette.Absyn.Ass2)
+    {
+       Javalette.Absyn.Ass2 _ass2 = (Javalette.Absyn.Ass2) foo;
+       if (_i_ > 0) render(_L_PAREN);
+       pp(_ass2.ident_, 0);
+       render("[");
+       pp(_ass2.expr_1, 0);
+       render("]");
+       render("=");
+       pp(_ass2.expr_2, 0);
+       render(";");
+       if (_i_ > 0) render(_R_PAREN);
+    }
     else     if (foo instanceof Javalette.Absyn.Incr)
     {
        Javalette.Absyn.Incr _incr = (Javalette.Absyn.Incr) foo;
@@ -521,6 +534,20 @@ public class PrettyPrinter
        render(";");
        if (_i_ > 0) render(_R_PAREN);
     }
+    else     if (foo instanceof Javalette.Absyn.ForLoop)
+    {
+       Javalette.Absyn.ForLoop _forloop = (Javalette.Absyn.ForLoop) foo;
+       if (_i_ > 0) render(_L_PAREN);
+       render("for");
+       render("(");
+       pp(_forloop.type_, 0);
+       pp(_forloop.ident_1, 0);
+       render(":");
+       pp(_forloop.ident_2, 0);
+       render(")");
+       pp(_forloop.stmt_, 0);
+       if (_i_ > 0) render(_R_PAREN);
+    }
   }
 
   private static void pp(Javalette.Absyn.Item foo, int _i_)
@@ -584,6 +611,14 @@ public class PrettyPrinter
        Javalette.Absyn.Void _void = (Javalette.Absyn.Void) foo;
        if (_i_ > 0) render(_L_PAREN);
        render("void");
+       if (_i_ > 0) render(_R_PAREN);
+    }
+    else     if (foo instanceof Javalette.Absyn.Array)
+    {
+       Javalette.Absyn.Array _array = (Javalette.Absyn.Array) foo;
+       if (_i_ > 0) render(_L_PAREN);
+       pp(_array.type_, 0);
+       render("[]");
        if (_i_ > 0) render(_R_PAREN);
     }
   }
@@ -669,6 +704,35 @@ public class PrettyPrinter
        if (_i_ > 5) render(_L_PAREN);
        render("!");
        pp(_not.expr_, 6);
+       if (_i_ > 5) render(_R_PAREN);
+    }
+    else     if (foo instanceof Javalette.Absyn.NewArray)
+    {
+       Javalette.Absyn.NewArray _newarray = (Javalette.Absyn.NewArray) foo;
+       if (_i_ > 5) render(_L_PAREN);
+       render("new");
+       pp(_newarray.type_, 0);
+       render("[");
+       pp(_newarray.expr_, 0);
+       render("]");
+       if (_i_ > 5) render(_R_PAREN);
+    }
+    else     if (foo instanceof Javalette.Absyn.ArrayLen)
+    {
+       Javalette.Absyn.ArrayLen _arraylen = (Javalette.Absyn.ArrayLen) foo;
+       if (_i_ > 5) render(_L_PAREN);
+       pp(_arraylen.ident_, 0);
+       render(".length");
+       if (_i_ > 5) render(_R_PAREN);
+    }
+    else     if (foo instanceof Javalette.Absyn.ArrayEle)
+    {
+       Javalette.Absyn.ArrayEle _arrayele = (Javalette.Absyn.ArrayEle) foo;
+       if (_i_ > 5) render(_L_PAREN);
+       pp(_arrayele.ident_, 0);
+       render("[");
+       pp(_arrayele.expr_, 0);
+       render("]");
        if (_i_ > 5) render(_R_PAREN);
     }
     else     if (foo instanceof Javalette.Absyn.EMul)
@@ -954,6 +1018,16 @@ public class PrettyPrinter
        sh(_ass.expr_);
        render(")");
     }
+    if (foo instanceof Javalette.Absyn.Ass2)
+    {
+       Javalette.Absyn.Ass2 _ass2 = (Javalette.Absyn.Ass2) foo;
+       render("(");
+       render("Ass2");
+       sh(_ass2.ident_);
+       sh(_ass2.expr_1);
+       sh(_ass2.expr_2);
+       render(")");
+    }
     if (foo instanceof Javalette.Absyn.Incr)
     {
        Javalette.Absyn.Incr _incr = (Javalette.Absyn.Incr) foo;
@@ -1019,6 +1093,17 @@ public class PrettyPrinter
        sh(_sexp.expr_);
        render(")");
     }
+    if (foo instanceof Javalette.Absyn.ForLoop)
+    {
+       Javalette.Absyn.ForLoop _forloop = (Javalette.Absyn.ForLoop) foo;
+       render("(");
+       render("ForLoop");
+       sh(_forloop.type_);
+       sh(_forloop.ident_1);
+       sh(_forloop.ident_2);
+       sh(_forloop.stmt_);
+       render(")");
+    }
   }
 
   private static void sh(Javalette.Absyn.Item foo)
@@ -1073,6 +1158,14 @@ public class PrettyPrinter
     {
        Javalette.Absyn.Void _void = (Javalette.Absyn.Void) foo;
        render("Void");
+    }
+    if (foo instanceof Javalette.Absyn.Array)
+    {
+       Javalette.Absyn.Array _array = (Javalette.Absyn.Array) foo;
+       render("(");
+       render("Array");
+       sh(_array.type_);
+       render(")");
     }
   }
 
@@ -1155,6 +1248,32 @@ public class PrettyPrinter
        render("(");
        render("Not");
        sh(_not.expr_);
+       render(")");
+    }
+    if (foo instanceof Javalette.Absyn.NewArray)
+    {
+       Javalette.Absyn.NewArray _newarray = (Javalette.Absyn.NewArray) foo;
+       render("(");
+       render("NewArray");
+       sh(_newarray.type_);
+       sh(_newarray.expr_);
+       render(")");
+    }
+    if (foo instanceof Javalette.Absyn.ArrayLen)
+    {
+       Javalette.Absyn.ArrayLen _arraylen = (Javalette.Absyn.ArrayLen) foo;
+       render("(");
+       render("ArrayLen");
+       sh(_arraylen.ident_);
+       render(")");
+    }
+    if (foo instanceof Javalette.Absyn.ArrayEle)
+    {
+       Javalette.Absyn.ArrayEle _arrayele = (Javalette.Absyn.ArrayEle) foo;
+       render("(");
+       render("ArrayEle");
+       sh(_arrayele.ident_);
+       sh(_arrayele.expr_);
        render(")");
     }
     if (foo instanceof Javalette.Absyn.EMul)

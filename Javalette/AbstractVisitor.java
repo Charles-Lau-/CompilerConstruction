@@ -27,6 +27,7 @@ public class AbstractVisitor<R,A> implements AllVisitor<R,A> {
     public R visit(Javalette.Absyn.BStmt p, A arg) { return visitDefault(p, arg); }
     public R visit(Javalette.Absyn.Decl p, A arg) { return visitDefault(p, arg); }
     public R visit(Javalette.Absyn.Ass p, A arg) { return visitDefault(p, arg); }
+    public R visit(Javalette.Absyn.Ass2 p, A arg) { return visitDefault(p, arg); }
     public R visit(Javalette.Absyn.Incr p, A arg) { return visitDefault(p, arg); }
     public R visit(Javalette.Absyn.Decr p, A arg) { return visitDefault(p, arg); }
     public R visit(Javalette.Absyn.Ret p, A arg) { return visitDefault(p, arg); }
@@ -35,6 +36,7 @@ public class AbstractVisitor<R,A> implements AllVisitor<R,A> {
     public R visit(Javalette.Absyn.CondElse p, A arg) { return visitDefault(p, arg); }
     public R visit(Javalette.Absyn.While p, A arg) { return visitDefault(p, arg); }
     public R visit(Javalette.Absyn.SExp p, A arg) { return visitDefault(p, arg); }
+    public R visit(Javalette.Absyn.ForLoop p, A arg) { return visitDefault(p, arg); }
     public R visitDefault(Javalette.Absyn.Stmt p, A arg) {
       throw new IllegalArgumentException(this.getClass().getName() + ": " + p);
     }
@@ -49,6 +51,7 @@ public class AbstractVisitor<R,A> implements AllVisitor<R,A> {
     public R visit(Javalette.Absyn.Doub p, A arg) { return visitDefault(p, arg); }
     public R visit(Javalette.Absyn.Bool p, A arg) { return visitDefault(p, arg); }
     public R visit(Javalette.Absyn.Void p, A arg) { return visitDefault(p, arg); }
+    public R visit(Javalette.Absyn.Array p, A arg) { return visitDefault(p, arg); }
     public R visitDefault(Javalette.Absyn.Type p, A arg) {
       throw new IllegalArgumentException(this.getClass().getName() + ": " + p);
     }
@@ -63,6 +66,9 @@ public class AbstractVisitor<R,A> implements AllVisitor<R,A> {
 
     public R visit(Javalette.Absyn.Neg p, A arg) { return visitDefault(p, arg); }
     public R visit(Javalette.Absyn.Not p, A arg) { return visitDefault(p, arg); }
+    public R visit(Javalette.Absyn.NewArray p, A arg) { return visitDefault(p, arg); }
+    public R visit(Javalette.Absyn.ArrayLen p, A arg) { return visitDefault(p, arg); }
+    public R visit(Javalette.Absyn.ArrayEle p, A arg) { return visitDefault(p, arg); }
 
     public R visit(Javalette.Absyn.EMul p, A arg) { return visitDefault(p, arg); }
 

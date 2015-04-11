@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 
 public class TypeChecker {
-  public static enum TypeCode {CInt,CDouble,CBool,CVoid,CString}	
+  public static enum TypeCode {CInt,CDouble,CBool,CVoid,CString,CArrInt,CArrDouble,CArrBool}	
   //define class for function type, which is function signature
   public static class FunType {
          public LinkedList<TypeCode> args ;
@@ -288,7 +288,7 @@ public class TypeChecker {
       }
 	   public AnnoStmt visit(Javalette.Absyn.Decr p, Env environment)
       {
-            TypeCode type=environment.lookupVar(p.ident_);
+            TypeCode type=environment.lookupVar(p.ident_); 
 			if(type!=TypeCode.CInt){
 			     	 throw new TypeException(PrettyPrinter.print(p)+":the operant must be integer");
 			}
@@ -398,14 +398,52 @@ public class TypeChecker {
 		return new AnnoStmt(null,new SExp(e.expr_));
   
      }
+	@Override
+	public AnnoStmt visit(ForLoop p, Env environment) {
+		TypeCode tArr = environment.lookupVar(p.ident_2);
+		TypeCode t = transferType(p.type_,environment);
+		boolean c1 = t==TypeCode.CInt && tArr==TypeCode.CArrInt;
+		boolean c2 = t==TypeCode.CDouble && tArr==TypeCode.CArrDouble;
+		boolean c3 = t==TypeCode.CBool && tArr==TypeCode.CArrBool;
+		if(c1||c2||c3){
+			environment.enterScope();
+			environment.addVar(p.ident_1, t);
+			AnnoStmt s = checkStmt(p.stmt_,environment);
+			environment.leaveScope();
+			return new AnnoStmt(s.o,p);
+		}
+			
+		else
+			throw new TypeException("type mismatch in for loop	");
+	}
+	@Override
+	public AnnoStmt visit(Ass2 p, Env environment) {
+		AnnoExpr e=inferExpr(p.expr_2,environment); 
+		TypeCode t=environment.lookupVar(p.ident_);
+        boolean c1 = e.typecode_ ==TypeCode.CInt && t==TypeCode.CArrInt;
+		boolean c2 = e.typecode_==TypeCode.CDouble && t==TypeCode.CArrDouble;
+		boolean c3 = e.typecode_==TypeCode.CBool && t==TypeCode.CArrBool;
+		if (!(c1||c2||c3)) { 
+                throw new TypeException(PrettyPrinter.print(p.expr_2) 
+			                    + " has type " + e.typecode_ 
+			                    + " expected " + t);
+                        }
+        return new AnnoStmt(null,new Ass2(p.ident_,p.expr_1,e.expr_));  
+		 
+	}
      }
     private AnnoExpr  checkExpr(Expr e,TypeCode t,Env environment){
 	 	   AnnoExpr tf=inferExpr(e,environment);
+	 	  try{
 	 	   if (tf.typecode_ != t) {
 	                      throw new TypeException(PrettyPrinter.print(tf.expr_) 
 				                    + " has type " + tf 
 				                    + " expected " + t);
 	                        }
+	 	  }
+	 	  catch(Exception e1){
+	 		   e1.printStackTrace();
+	 	  }
 	 	   return tf;
 	 }
 	private Boolean checkConstant(Expr e){
@@ -438,7 +476,7 @@ public class TypeChecker {
 	   public AnnoExpr visit(Javalette.Absyn.ELitInt p, Env environment)
     {
        return new AnnoExpr(TypeCode.CInt,new AnnoType(transferTypeCode(TypeCode.CInt),p));
-	  
+     
     }
     public AnnoExpr visit(Javalette.Absyn.ELitDoub p,Env environment)
     { 
@@ -460,7 +498,6 @@ public class TypeChecker {
 	public AnnoExpr visit(Javalette.Absyn.EApp p, Env environment)
     {
        FunType ft=environment.lookupFun(p.ident_);
-       
        LinkedList<TypeCode> ft_list=ft.args;
        int len;
        if(ft_list==null)
@@ -491,7 +528,6 @@ public class TypeChecker {
          throw new TypeException("the function "+p.ident_+" is not given right number of arguments");
 
       return new AnnoExpr(ft.val,new AnnoType(transferTypeCode(ft.val),p));
-    
     }
       public AnnoExpr visit(Javalette.Absyn.Neg p,Env environment)
     {
@@ -527,6 +563,7 @@ public class TypeChecker {
            	}
            else throw new TypeException("the operant of multification must be both int or double");
     }
+	 
     public AnnoExpr visit(Javalette.Absyn.EAdd p, Env environment)
     {
            AnnoExpr e1=inferExpr(p.expr_1,environment);
@@ -534,13 +571,13 @@ public class TypeChecker {
            
 		   if(e1.typecode_==TypeCode.CInt&&e2.typecode_==TypeCode.CInt){
          	 return new AnnoExpr(TypeCode.CInt,new AnnoType(transferTypeCode(TypeCode.CInt),new EAdd(e1.expr_,p.addop_,e2.expr_)));
-               }
+            }
            else if(e1.typecode_==TypeCode.CDouble&&e2.typecode_==TypeCode.CDouble){
          	 return new AnnoExpr(TypeCode.CDouble,new AnnoType(transferTypeCode(TypeCode.CDouble),new EAdd(e1.expr_,p.addop_,e2.expr_)));
-	
            }
            else throw new TypeException("the operant of addition must be both int or double");
     }
+    
     public AnnoExpr visit(Javalette.Absyn.ERel p,Env environment)
     {
     	    AnnoExpr e1=inferExpr(p.expr_1,environment);
@@ -565,6 +602,7 @@ public class TypeChecker {
            }
            else throw new TypeException("the operant of relation is not right");
     }
+    
     public AnnoExpr visit(Javalette.Absyn.EAnd p, Env environment)
     {
 	   AnnoExpr e1=checkExpr(p.expr_1,TypeCode.CBool,environment);
@@ -579,6 +617,36 @@ public class TypeChecker {
         
    	return new AnnoExpr(TypeCode.CBool,new AnnoType(transferTypeCode(TypeCode.CBool),new EOr(e1.expr_,e2.expr_)));
     }
+	@Override
+	public AnnoExpr visit(NewArray p, Env environment) {
+		AnnoExpr e = checkExpr(p.expr_,TypeCode.CInt,environment);
+		TypeCode t = transferType(p.type_,environment);
+		if(t.equals(TypeCode.CInt))
+		    return new AnnoExpr(TypeCode.CArrInt,new AnnoType(p.type_,p));
+		else if(t.equals(TypeCode.CDouble))
+		    return new AnnoExpr(TypeCode.CArrDouble,new AnnoType(p.type_,p));
+		else if(t.equals(TypeCode.CBool))
+		    return new AnnoExpr(TypeCode.CArrBool,new AnnoType(p.type_,p));
+		else
+			throw new TypeException("error declaration of new array with type "+ t);
+	}
+	@Override
+	public AnnoExpr visit(ArrayLen p, Env arg) {
+		 
+		return new AnnoExpr(TypeCode.CInt,new AnnoType(transferTypeCode(TypeCode.CInt),p));
+	}
+	@Override
+	public AnnoExpr visit(ArrayEle p, Env environment) {
+		AnnoExpr e = checkExpr(p.expr_,TypeCode.CInt,environment);
+		TypeCode t= environment.lookupVar(p.ident_);
+		if(t==TypeCode.CArrInt)
+			return new AnnoExpr(TypeCode.CInt,new ArrayEle(p.ident_,e.expr_)); 
+		else if(t==TypeCode.CArrDouble)
+			return new AnnoExpr(TypeCode.CDouble,new ArrayEle(p.ident_,e.expr_));
+		else
+
+			return new AnnoExpr(TypeCode.CBool,new ArrayEle(p.ident_,e.expr_));
+		}
 	
 	}	
 	private   Type     transferTypeCode(TypeCode tc){
@@ -592,9 +660,17 @@ public class TypeChecker {
 	    else if(tc.equals(TypeCode.CInt)){
 	       return new Int();
 	    }
-	    else
+	    else if(tc.equals(TypeCode.CBool))
 	      return new Javalette.Absyn.Void();
-	
+	    else
+	    { 
+	    	if(tc.equals(TypeCode.CArrInt))
+	    	 return new Javalette.Absyn.Array(new Int());
+	    	else if(tc.equals(TypeCode.CArrDouble))
+	    	 return new Javalette.Absyn.Array(new Doub());
+	    	else
+	    	 return new Javalette.Absyn.Array(new Bool());
+	    }
 }
    private TypeCode transferType(Type t,Env environment){
 	   
@@ -619,7 +695,18 @@ public class TypeChecker {
     {
            return TypeCode.CVoid;
     }
-	
+	@Override
+	public TypeCode visit(Array p, Env arg) {
+			if(transferType(p.type_,arg)==TypeCode.CInt)
+				return TypeCode.CArrInt;
+			else if(transferType(p.type_,arg)==TypeCode.CDouble)
+				return TypeCode.CArrDouble;
+			else if(transferType(p.type_,arg)==TypeCode.CBool)
+				return TypeCode.CArrBool;
+			else
+				throw new TypeException("array must be int,double or bool");
+	}
+ 
 		
    }
 }
