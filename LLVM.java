@@ -230,8 +230,7 @@ public class LLVM {
 		  
           Pro program=(Pro)p;
           //declare external function
-          emit("declare i32* @calloc(i32, i32)","function");
-		  for(TopDef d: program.listtopdef_){
+      	  for(TopDef d: program.listtopdef_){
 		  	    LinkedList<Type> argType_List=new LinkedList<Type>();
 		  	    FnDef df=(FnDef)d;
 		  	    for(Arg g:df.listarg_){
@@ -607,49 +606,83 @@ public class LLVM {
 		
 		String index = compileExpr(p.expr_1,"").split(" ")[1];
 		
+		/* check whether index is a constant or a register
+		 * and since index is i32 type, we need to do  some
+		 * type conversion according to different array type
+		 */
 		try{
 			int idex=Integer.parseInt(index);
 			index = Integer.toString((idex+1));
+			if(type.equals("i8"))
+				index = "i8 "+index;
+			else if(type.equals("i32"))
+				index = "i32 "+index;
+			else
+				index = "i64 "+index;
 		}
 		catch(NumberFormatException e){
 			String regis = environment.getRegister();
 			emit(regis+"=add i32 1,"+index);
 			index = regis;
+			if(type.equals("i8")){
+				String r = environment.getRegister();
+				emit(r+"=trunc i32 "+regis+" to i8");
+				index = "i8 "+r;
+			}
+			else if(type.equals("double")){
+				String r = environment.getRegister();
+				emit(r+"=zext i32 "+regis+" to i64");
+				index = "i64 "+r;
+			}
 		}
-		String value = compileExpr(p.expr_2,"");
 		
+		String value = compileExpr(p.expr_2,"");
+
 		String r1 = environment.getRegister();
 		emit(r1+"=load "+arr.get(1)+" "+arr.get(0));
 		String r2 = environment.getRegister();
-		emit(r2+"=getelementptr "+type_ptr+" "+r1+","+type+" "+index);
-		emit("store "+value+","+type_ptr+" "+r2);
+		emit(r2+"=getelementptr "+type_ptr+" "+r1+","+index);
+		emit("store "+type+" "+value.split(" ")[1]+","+type_ptr+" "+r2);
 		 
 		return "";
 	}
 	@Override
 	public String visit(ForLoop p, Object arg) {
 		environment.enterScope();
+		//generate label
 		NewLabel label = environment.getNewLabel();
 		String w_label = label.getLabel("While");
 		String t_label  = label.getLabel("TRUE");
 		String f_label = label.getLabel("FALSE");
+		
+		//add counter variable, it is i32 0
 		environment.addVar("counter", new Int());
-		 ArrayList<String> c=environment.lookupVar("counter");
- 		 emit(c.get(0)+"=alloca "+c.get(1));
+		ArrayList<String> c=environment.lookupVar("counter");
+ 		emit(c.get(0)+"=alloca "+c.get(1));
  		environment.updateVar("counter", c.get(1)+"*");
-        emit("store i32 0,"+c.get(1)+" "+c.get(0)); 
+        emit("store i32 0,"+c.get(1)+" "+c.get(0));
+        
+        //get length which is i32 type
 		String len=compileExpr(new ArrayLen(p.ident_2),null).split(" ")[1];
 		
 		
 		//store ident1
 		environment.addVar(p.ident_1,p.type_);
- 		 ArrayList<String> l=environment.lookupVar(p.ident_1);
- 		 emit(l.get(0)+"=alloca "+l.get(1));
- 		 //update the type to pointer
+ 		ArrayList<String> l=environment.lookupVar(p.ident_1);
+ 		emit(l.get(0)+"=alloca "+l.get(1));
+ 		//update the type to pointer
  		environment.updateVar(p.ident_1, l.get(1)+"*");
- 		 //update the value for the variable
-        emit("store i32 0,"+l.get(1)+" "+l.get(0));
-		//store end
+ 		//initilize zero for ident1
+ 		if(l.get(1).equals("double*"))
+ 		  emit("store double 0.0,"+l.get(1)+" "+l.get(0)); 
+ 		else if(l.get(1).equals("i32*"))
+ 		  emit("store i32 0,"+l.get(1)+" "+l.get(0));
+ 		else{
+ 		  emit("store i1 0,"+l.get(1)+" "+l.get(0));
+ 		
+ 		}//store end
+ 		
+ 		
         emit("br label %"+w_label);
         emit(w_label+":");
         String counter = environment.getRegister();
@@ -657,6 +690,8 @@ public class LLVM {
         emit(counter+"=load "+c.get(1)+" "+c.get(0));
 		emit(cond+"=icmp slt i32 "+counter+","+len);
 		emit("br i1 "+cond+",label %"+t_label+",label %"+f_label);
+		
+		//true label
 		emit(t_label+":");
 		ArrayList<String> arr = environment.lookupVar(p.ident_2);
 		String type = arr.get(1).substring(0,arr.get(1).length()-2);
@@ -665,11 +700,44 @@ public class LLVM {
 		String r1 = environment.getRegister();
 		emit(r1+"=load "+arr.get(1)+" "+arr.get(0));
 	    String r0 = environment.getRegister();
-		String r2 = environment.getRegister();
 		emit(r0+"=add i32 1,"+counter);
-		emit(r2+"=getelementptr "+type_ptr+" "+r1+","+type+" "+r0);
+		/* r0 is the register that hold index value,
+		 * however, it is i32 type, some conversion must be
+		 * taken
+		 */
+		String index;
+		if(type.equals("double")){
+			String rr = environment.getRegister();
+			emit(rr+"=zext i32 "+r0+" to i64");
+		    index = "i64 "+rr;
+		}
+		else if(type.equals("i32")){
+			index = "i32 "+r0;
+		}
+		else {
+			String rr = environment.getRegister();
+			emit(rr+"=trunc i32 "+r0+" to i8");
+			index = "i8 "+rr;
+		}
+
+		String r2 = environment.getRegister();
+		emit(r2+"=getelementptr "+type_ptr+" "+r1+","+index);
 		String r3 = environment.getRegister();
 		emit(r3+"=load "+type_ptr+" "+r2);
+		
+		/* cause when n in for(n:s) is boolean type, then
+		 * It is i1 type in llvm, however, r3 which hold the
+		 * value to be stored in n is a i8 type, since boolean
+		 * array is i8 type, therefore, r3 need to be converted
+		 * into i1 type
+		 */
+		
+		if(type.equals("i8")){
+			String rrr = environment.getRegister();
+			emit(rrr+"=trunc i8 "+r3+" to i1");
+			r3 = rrr;
+			type = "i1";
+		}
 		emit("store "+type+" "+r3+","+l.get(1)+" "+l.get(0));
 		compileStmt(p.stmt_,arg);
 		emit("store i32 "+r0+","+c.get(1)+" "+c.get(0));
@@ -931,55 +999,95 @@ public class LLVM {
  	}
 	@Override
 	public String visit(NewArray p, String arg) {
-		String size;
+	 	String t = compileType(p.type_,null);
+	 	//total size of allocated memory
+	 	String size;
+	 	//number of available element space, which is size -1
 		String num = compileExpr(p.expr_,arg).split(" ")[1];
+		
+	    /* when array type is double, since size of the array
+	     * is always i32 type and we need to store the length
+	     * in the first element of the array space, therefore
+	     * num become num.0 to show it is double type
+	     * And also whether it is constant or a register is
+	     * checked
+	     */
 		try{	
 	 	 size= (new Integer(num)+1)+"";
+	 	 if(t.equals("double"))
+	 		 num+=".0";
 		}
 		catch(NumberFormatException e){
 		    String register = environment.getRegister();
 			emit(register+"=add i32 1,"+num);
 			size = register;
+			if(t.equals("double")){
+				 String r2 = environment.getRegister();
+				 emit(r2+"=sitofp i32 "+num+" to double");
+				 num = r2;
+			}
 		}
-	 	String t = compileType(p.type_,null);
 		String addr = environment.getRegister();
 		String returnValue="";
+		String zero;
+		//call different calloc
 		if(t.equals("i1")){
 			emit(addr+"=call i8* @calloc(i32 "+size+",i32 1)");
 			returnValue = "i8*";
 			t="i8";
+			zero = t+" 0";
 		 }
 		else if(t.equals("i32")){
 			emit(addr+"=call i32* @calloc(i32 "+size+",i32 4)");
 			returnValue = "i32*";
+			zero = t+" 0";
 		}
 		else{
-			emit(addr+"=call i64* @calloc(i32 "+size+",i32 8)");
-			returnValue = "i64*";
-			t="i64";
+			emit(addr+"=call double* @calloc(i32 "+size+",i32 8)");
+			returnValue = "double*";
+			t="double";
+			zero = "i64 0";
 		}
+	    emit("declare "+returnValue+" @calloc(i32, i32)","function");
 		String r1 = environment.getRegister();
-		emit(r1+"=getelementptr "+returnValue+" "+addr+","+t+" 0");
+		 
+		emit(r1+"=getelementptr "+returnValue+" "+addr+","+zero);
 		emit("store "+t+" "+num+","+returnValue+" "+r1);
 		return returnValue+" "+addr;
 	}
 	@Override
+	//alwarys return (i32 length)
 	public String visit(ArrayLen p, String arg) {
 		ArrayList<String> array= environment.lookupVar(p.ident_);
+		String type = array.get(1).substring(0,array.get(1).length()-2);
+		String type_ptr = type+"*";
+		
 		String r1 = environment.getRegister();
 		emit(r1+"=load "+array.get(1)+" "+array.get(0));
 		String r2 = environment.getRegister();
-		String type = array.get(1).substring(0,array.get(1).length()-2);
-		String type_ptr = type+"*";
-		 
-		emit(r2+"=getelementptr "+type_ptr+r1+","+type+" 0");
+		
+		String zero;
+		if(type.equals("double"))
+			zero = "i64 0";
+		else if(type.equals("i32"))
+			zero = "i32 0";
+		else
+			zero = "i8 0";
+		
+		emit(r2+"=getelementptr "+type_ptr+r1+","+zero);
 		String r3 = environment.getRegister();
 		emit(r3+"=load "+type_ptr+" "+r2);
-		if(type.equals("i8")||type.equals("i32"))
+		if(type.equals("i32"))
 			return "i32 "+r3;
+		else if(type.equals("i8"))
+		{
+			String rr = environment.getRegister();
+			emit(rr+"=zext i8 "+r3+" to i32");
+			return "i32 "+rr;
+		}
 		else{
 			String r4 = environment.getRegister();
-			emit(r4+"=fptoui double "+r3+"to i32");
+			emit(r4+"=fptoui double "+r3+" to i32");
 			return  "i32 "+r4;
 		}
 	}
@@ -988,21 +1096,38 @@ public class LLVM {
 		ArrayList<String> arr = environment.lookupVar(p.ident_);
 		String type = arr.get(1).substring(0,arr.get(1).length()-2);
 		String type_ptr = type+"*";
+		
 		String index = compileExpr(p.expr_,arg).split(" ")[1];
 		try{
 			int idex=Integer.parseInt(index);
 			index = Integer.toString((idex+1));
+			if(type.equals("i8"))
+				index = "i8 "+index;
+			else if(type.equals("i32"))
+				index = "i32 "+index;
+			else
+				index = "i64 "+index;
 		}
 		catch(NumberFormatException e){
 			String regis = environment.getRegister();
 			emit(regis+"=add i32 1,"+index);
 			index = regis;
+			if(type.equals("i8")){
+				String r = environment.getRegister();
+				emit(r+"=trunc i32 "+regis+"to i8");
+				index = "i8 "+r;
+			}
+			else if(type.equals("double")){
+				String r = environment.getRegister();
+				emit(r+"=zext i32 "+regis+" to i64");
+				index = "i64 "+r;
+			}
 		}
+		
 		String r1 = environment.getRegister();
 		emit(r1+"=load "+arr.get(1)+" "+arr.get(0));
-		 
 		String r2 = environment.getRegister();
-		emit(r2+"=getelementptr "+type_ptr+" "+r1+","+type+" "+index);
+		emit(r2+"=getelementptr "+type_ptr+" "+r1+","+index);
 		String r3 = environment.getRegister();
 		emit(r3+"=load "+type_ptr+" "+r2);
 		return type+" "+r3;
@@ -1139,7 +1264,7 @@ public class LLVM {
 		     else if(t.equals("i32"))
 		    	 return "i32*";
 		     else
-		    	 return "i64*";
+		    	 return "double*";
 	}
   	
   		
