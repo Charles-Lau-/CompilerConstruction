@@ -17,7 +17,7 @@ public class LLVM {
 	ArrayList<String> instruction=new ArrayList<String>();
 	ArrayList<String> string_declaration=new ArrayList<String>();
 	ArrayList<String> function_declaration=new ArrayList<String>();
-	
+	ArrayList<String>  after_entry = new ArrayList<String>();
 	public static enum TypeCode {CInt,CDouble,CBool,CVoid,CString}	
 	//global variable
 	private Env environment=new Env();
@@ -117,11 +117,12 @@ public class LLVM {
     		    else{
     		         ArrayList<String> arr=new ArrayList<String>();
     		         
-    		         arr.add("%"+x+variable_counter);
+    		         arr.add("%"+x+variable_counter++);
+    		         
     		         arr.add(compileType(t,null));
     		         
     		         scopes.getFirst().put(x, arr);
-    		         variable_counter++;
+    		         
     		  
     		    }
     		    }
@@ -141,6 +142,16 @@ public class LLVM {
    			         ArrayList<String> t = scope.get(x);
    			         if (t != null){
    			        	    t.set(1, llvm_type);
+   			        	    scope.put(x, t);  
+   			         }
+   			                
+   		      }
+    		  }
+    		  public void updateVarRegisterMapping(String x,String registerName){
+    			  for (HashMap<String,ArrayList<String>> scope : scopes) {
+   			         ArrayList<String> t = scope.get(x);
+   			         if (t != null){
+   			        	    t.set(0, registerName);
    			        	    scope.put(x, t);  
    			         }
    			                
@@ -201,7 +212,10 @@ public class LLVM {
     	    	   function_declaration.add(global_declaration+"\r\n");
     	    	}
     	    }
-    	    else
+    	    else if(mode.equals("afterEntry")){
+    	    	after_entry.add(global_declaration+"\r\n");
+    	    }
+    	    else 
     	    	throw new RuntimeException("parameter of mode could just be string or function");
       }
      
@@ -214,7 +228,9 @@ public class LLVM {
 		  fileWriter=new FileWriter(file);
 		  
 		  
-          Pro program=(Pro)p;	  
+          Pro program=(Pro)p;
+          //declare external function
+          emit("declare i32* @calloc(i32, i32)","function");
 		  for(TopDef d: program.listtopdef_){
 		  	    LinkedList<Type> argType_List=new LinkedList<Type>();
 		  	    FnDef df=(FnDef)d;
@@ -279,7 +295,11 @@ public class LLVM {
             emit(function_signature);
             emit("{");
             emit("entry:");
-            
+            if(!after_entry.isEmpty()){
+            	for(String s:after_entry)
+            		instruction.add(s);
+            	after_entry.clear();
+            }
             //check whether the function body is empty
             if(((Blo)d.block_).liststmt_.size()!=0)
                  compileBlock(d.block_,obj);
@@ -298,10 +318,19 @@ public class LLVM {
          public String visit(Javalette.Absyn.Args p, Object obj)
          {
          
-            environment.addVar(p.ident_,p.type_);
-            ArrayList<String> arr=environment.lookupVar(p.ident_);
-            
-            return arr.get(1)+" "+arr.get(0);
+        	
+        	environment.addVar(p.ident_,p.type_);
+        	ArrayList<String> arr=environment.lookupVar(p.ident_);
+            String type = arr.get(1);
+            String name = arr.get(0);
+        	if(arr.get(1).contains("*")){
+        		String register = "%"+p.ident_+environment.variable_counter++;
+        		emit(register +"=alloca "+arr.get(1),"afterEntry");
+        		emit("store "+arr.get(1)+" "+arr.get(0)+","+arr.get(1)+"* "+register,"afterEntry");
+        		environment.updateVarRegisterMapping(p.ident_,register);
+            	environment.updateVar(p.ident_, arr.get(1)+"*");
+            }
+            return type+" "+name;
          }
   
 	}
@@ -364,6 +393,8 @@ public class LLVM {
           			   value="i32 0";
           		   else if(t=="double")
           			   value="double 0.0";
+          		   else
+          			   value= t+" 0";
           		   //update the type to pointer
           		   environment.updateVar(nx.ident_, l.get(1)+"*");
 
@@ -444,9 +475,9 @@ public class LLVM {
            else{
           	  String register1=environment.getRegister();
 	        	  String register2=environment.getRegister();
-          	      emit(register1+"=alloca "+l.get(1));
-	        	  emit(register2+"=add "+l.get(1)+" "+l.get(0)+","+"-1");
-	        	  emit("store i32 "+register2+","+l.get(1)+"* "+register1);
+          	      emit(register1+"=alloca "+l.get(1),"afterEntry");
+	        	  emit(register2+"=add "+l.get(1)+" "+l.get(0)+","+"-1","afterEntry");
+	        	  emit("store i32 "+register2+","+l.get(1)+"* "+register1,"afterEntry");
 	              
 	        	  environment.updateVar(p.ident_, register1+"*");
            }
@@ -570,12 +601,81 @@ public class LLVM {
        }
 	@Override
 	public String visit(Ass2 p, Object arg) {
-		// TODO Auto-generated method stub
-		return null;
+		ArrayList<String> arr = environment.lookupVar(p.ident_);
+		String type = arr.get(1).substring(0,arr.get(1).length()-2);
+		String type_ptr = type+"*";
+		
+		String index = compileExpr(p.expr_1,"").split(" ")[1];
+		
+		try{
+			int idex=Integer.parseInt(index);
+			index = Integer.toString((idex+1));
+		}
+		catch(NumberFormatException e){
+			String regis = environment.getRegister();
+			emit(regis+"=add i32 1,"+index);
+			index = regis;
+		}
+		String value = compileExpr(p.expr_2,"");
+		
+		String r1 = environment.getRegister();
+		emit(r1+"=load "+arr.get(1)+" "+arr.get(0));
+		String r2 = environment.getRegister();
+		emit(r2+"=getelementptr "+type_ptr+" "+r1+","+type+" "+index);
+		emit("store "+value+","+type_ptr+" "+r2);
+		 
+		return "";
 	}
 	@Override
 	public String visit(ForLoop p, Object arg) {
-		// TODO Auto-generated method stub
+		environment.enterScope();
+		NewLabel label = environment.getNewLabel();
+		String w_label = label.getLabel("While");
+		String t_label  = label.getLabel("TRUE");
+		String f_label = label.getLabel("FALSE");
+		environment.addVar("counter", new Int());
+		 ArrayList<String> c=environment.lookupVar("counter");
+ 		 emit(c.get(0)+"=alloca "+c.get(1));
+ 		environment.updateVar("counter", c.get(1)+"*");
+        emit("store i32 0,"+c.get(1)+" "+c.get(0)); 
+		String len=compileExpr(new ArrayLen(p.ident_2),null).split(" ")[1];
+		
+		
+		//store ident1
+		environment.addVar(p.ident_1,p.type_);
+ 		 ArrayList<String> l=environment.lookupVar(p.ident_1);
+ 		 emit(l.get(0)+"=alloca "+l.get(1));
+ 		 //update the type to pointer
+ 		environment.updateVar(p.ident_1, l.get(1)+"*");
+ 		 //update the value for the variable
+        emit("store i32 0,"+l.get(1)+" "+l.get(0));
+		//store end
+        emit("br label %"+w_label);
+        emit(w_label+":");
+        String counter = environment.getRegister();
+        String cond = environment.getRegister();
+        emit(counter+"=load "+c.get(1)+" "+c.get(0));
+		emit(cond+"=icmp slt i32 "+counter+","+len);
+		emit("br i1 "+cond+",label %"+t_label+",label %"+f_label);
+		emit(t_label+":");
+		ArrayList<String> arr = environment.lookupVar(p.ident_2);
+		String type = arr.get(1).substring(0,arr.get(1).length()-2);
+		String type_ptr = type+"*";
+		
+		String r1 = environment.getRegister();
+		emit(r1+"=load "+arr.get(1)+" "+arr.get(0));
+	    String r0 = environment.getRegister();
+		String r2 = environment.getRegister();
+		emit(r0+"=add i32 1,"+counter);
+		emit(r2+"=getelementptr "+type_ptr+" "+r1+","+type+" "+r0);
+		String r3 = environment.getRegister();
+		emit(r3+"=load "+type_ptr+" "+r2);
+		emit("store "+type+" "+r3+","+l.get(1)+" "+l.get(0));
+		compileStmt(p.stmt_,arg);
+		emit("store i32 "+r0+","+c.get(1)+" "+c.get(0));
+		emit("br label %"+w_label);
+		emit(f_label+":");
+		environment.leaveScope();
 		return null;
 	}
        
@@ -735,6 +835,7 @@ public class LLVM {
     	 String value1=compileExpr(p.expr_1,null);
   		 String value2=compileExpr(p.expr_2,null);
   		 
+  		 
   		 AnnoType a_p=(AnnoType)p.expr_1;
          String oper=compileAddop(p.addop_,compileType(a_p.type_,null));
          String register=environment.getRegister();
@@ -830,18 +931,81 @@ public class LLVM {
  	}
 	@Override
 	public String visit(NewArray p, String arg) {
-		// TODO Auto-generated method stub
-		return null;
+		String size;
+		String num = compileExpr(p.expr_,arg).split(" ")[1];
+		try{	
+	 	 size= (new Integer(num)+1)+"";
+		}
+		catch(NumberFormatException e){
+		    String register = environment.getRegister();
+			emit(register+"=add i32 1,"+num);
+			size = register;
+		}
+	 	String t = compileType(p.type_,null);
+		String addr = environment.getRegister();
+		String returnValue="";
+		if(t.equals("i1")){
+			emit(addr+"=call i8* @calloc(i32 "+size+",i32 1)");
+			returnValue = "i8*";
+			t="i8";
+		 }
+		else if(t.equals("i32")){
+			emit(addr+"=call i32* @calloc(i32 "+size+",i32 4)");
+			returnValue = "i32*";
+		}
+		else{
+			emit(addr+"=call i64* @calloc(i32 "+size+",i32 8)");
+			returnValue = "i64*";
+			t="i64";
+		}
+		String r1 = environment.getRegister();
+		emit(r1+"=getelementptr "+returnValue+" "+addr+","+t+" 0");
+		emit("store "+t+" "+num+","+returnValue+" "+r1);
+		return returnValue+" "+addr;
 	}
 	@Override
 	public String visit(ArrayLen p, String arg) {
-		// TODO Auto-generated method stub
-		return null;
+		ArrayList<String> array= environment.lookupVar(p.ident_);
+		String r1 = environment.getRegister();
+		emit(r1+"=load "+array.get(1)+" "+array.get(0));
+		String r2 = environment.getRegister();
+		String type = array.get(1).substring(0,array.get(1).length()-2);
+		String type_ptr = type+"*";
+		 
+		emit(r2+"=getelementptr "+type_ptr+r1+","+type+" 0");
+		String r3 = environment.getRegister();
+		emit(r3+"=load "+type_ptr+" "+r2);
+		if(type.equals("i8")||type.equals("i32"))
+			return "i32 "+r3;
+		else{
+			String r4 = environment.getRegister();
+			emit(r4+"=fptoui double "+r3+"to i32");
+			return  "i32 "+r4;
+		}
 	}
 	@Override
 	public String visit(ArrayEle p, String arg) {
-		// TODO Auto-generated method stub
-		return null;
+		ArrayList<String> arr = environment.lookupVar(p.ident_);
+		String type = arr.get(1).substring(0,arr.get(1).length()-2);
+		String type_ptr = type+"*";
+		String index = compileExpr(p.expr_,arg).split(" ")[1];
+		try{
+			int idex=Integer.parseInt(index);
+			index = Integer.toString((idex+1));
+		}
+		catch(NumberFormatException e){
+			String regis = environment.getRegister();
+			emit(regis+"=add i32 1,"+index);
+			index = regis;
+		}
+		String r1 = environment.getRegister();
+		emit(r1+"=load "+arr.get(1)+" "+arr.get(0));
+		 
+		String r2 = environment.getRegister();
+		emit(r2+"=getelementptr "+type_ptr+" "+r1+","+type+" "+index);
+		String r3 = environment.getRegister();
+		emit(r3+"=load "+type_ptr+" "+r2);
+		return type+" "+r3;
 	}
      }
      private String compileMulop(MulOp m,String t){
@@ -967,10 +1131,15 @@ public class LLVM {
       {
              return "void";
       }
-	@Override
-	public String visit(Array p, Object arg) {
-		// TODO Auto-generated method stub
-		return null;
+	 
+	  public String visit(Array p, Object arg) {
+		  	 String t = compileType(p.type_,arg);
+		     if(t.equals("i1"))
+		    	 return "i8*";
+		     else if(t.equals("i32"))
+		    	 return "i32*";
+		     else
+		    	 return "i64*";
 	}
   	
   		

@@ -418,17 +418,18 @@ public class TypeChecker {
 	}
 	@Override
 	public AnnoStmt visit(Ass2 p, Env environment) {
-		AnnoExpr e=inferExpr(p.expr_2,environment); 
+		AnnoExpr e2=inferExpr(p.expr_2,environment);
+		AnnoExpr e1=checkExpr(p.expr_1,TypeCode.CInt,environment);
 		TypeCode t=environment.lookupVar(p.ident_);
-        boolean c1 = e.typecode_ ==TypeCode.CInt && t==TypeCode.CArrInt;
-		boolean c2 = e.typecode_==TypeCode.CDouble && t==TypeCode.CArrDouble;
-		boolean c3 = e.typecode_==TypeCode.CBool && t==TypeCode.CArrBool;
+        boolean c1 = e2.typecode_ ==TypeCode.CInt && t==TypeCode.CArrInt;
+		boolean c2 = e2.typecode_==TypeCode.CDouble && t==TypeCode.CArrDouble;
+		boolean c3 = e2.typecode_==TypeCode.CBool && t==TypeCode.CArrBool;
 		if (!(c1||c2||c3)) { 
                 throw new TypeException(PrettyPrinter.print(p.expr_2) 
-			                    + " has type " + e.typecode_ 
+			                    + " has type " + e2.typecode_ 
 			                    + " expected " + t);
                         }
-        return new AnnoStmt(null,new Ass2(p.ident_,p.expr_1,e.expr_));  
+        return new AnnoStmt(null,new Ass2(p.ident_,e1.expr_,e2.expr_));  
 		 
 	}
      }
@@ -640,12 +641,12 @@ public class TypeChecker {
 		AnnoExpr e = checkExpr(p.expr_,TypeCode.CInt,environment);
 		TypeCode t= environment.lookupVar(p.ident_);
 		if(t==TypeCode.CArrInt)
-			return new AnnoExpr(TypeCode.CInt,new ArrayEle(p.ident_,e.expr_)); 
+			return new AnnoExpr(TypeCode.CInt,new AnnoType(transferTypeCode(t),new ArrayEle(p.ident_,e.expr_))); 
 		else if(t==TypeCode.CArrDouble)
-			return new AnnoExpr(TypeCode.CDouble,new ArrayEle(p.ident_,e.expr_));
+			return new AnnoExpr(TypeCode.CDouble,new AnnoType(transferTypeCode(t),new ArrayEle(p.ident_,e.expr_)));
 		else
 
-			return new AnnoExpr(TypeCode.CBool,new ArrayEle(p.ident_,e.expr_));
+			return new AnnoExpr(TypeCode.CBool,new AnnoType(transferTypeCode(t),new ArrayEle(p.ident_,e.expr_)));
 		}
 	
 	}	
