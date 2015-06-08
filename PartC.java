@@ -3,7 +3,7 @@ import java.io.*;
 
 public class PartC {
 	public static void main(String args[]) {
-		String path="//home//pengkun//tester//testsuite//t//";
+		String path="//home//pengkun//tester//testsuite//extensions//arrays1//";
 		File f=new File(path);
 	    args=f.list();
   

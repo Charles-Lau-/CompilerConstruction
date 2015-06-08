@@ -435,16 +435,13 @@ public class TypeChecker {
      }
     private AnnoExpr  checkExpr(Expr e,TypeCode t,Env environment){
 	 	   AnnoExpr tf=inferExpr(e,environment);
-	 	  try{
 	 	   if (tf.typecode_ != t) {
 	                      throw new TypeException(PrettyPrinter.print(tf.expr_) 
 				                    + " has type " + tf 
 				                    + " expected " + t);
 	                        }
-	 	  }
-	 	  catch(Exception e1){
-	 		   e1.printStackTrace();
-	 	  }
+	 	 
+	 	  
 	 	   return tf;
 	 }
 	private Boolean checkConstant(Expr e){
@@ -632,9 +629,12 @@ public class TypeChecker {
 			throw new TypeException("error declaration of new array with type "+ t);
 	}
 	@Override
-	public AnnoExpr visit(ArrayLen p, Env arg) {
-		 
-		return new AnnoExpr(TypeCode.CInt,new AnnoType(transferTypeCode(TypeCode.CInt),p));
+	public AnnoExpr visit(ArrayLen p, Env environment) {
+		TypeCode t = environment.lookupVar(p.ident_);
+		if(t == TypeCode.CArrInt || t==TypeCode.CArrDouble || t==TypeCode.CArrBool)
+			return new AnnoExpr(TypeCode.CInt,new AnnoType(transferTypeCode(TypeCode.CInt),p));
+		else
+			throw new TypeException("unmatched type");
 	}
 	@Override
 	public AnnoExpr visit(ArrayEle p, Env environment) {

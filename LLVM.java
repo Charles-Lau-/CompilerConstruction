@@ -634,6 +634,9 @@ public class LLVM {
 				emit(r+"=zext i32 "+regis+" to i64");
 				index = "i64 "+r;
 			}
+			else{ 
+				index = "i32 "+index;
+			}
 		}
 		
 		String value = compileExpr(p.expr_2,"");
